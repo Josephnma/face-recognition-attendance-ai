@@ -267,7 +267,7 @@ def recognize_student(captured_img_path):
 # Route for the main page
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index1.html')
 
 
 # Route to capture image and recognize student
