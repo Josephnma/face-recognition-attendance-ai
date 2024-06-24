@@ -251,7 +251,7 @@ def recognize_student(captured_img_path):
         result = cv2.matchTemplate(preprocessed_captured_img, preprocessed_student_img, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, _ = cv2.minMaxLoc(result)
 
-        if max_val >= 0.3:  # Threshold
+        if max_val >= 0.5:  # Threshold
             filename = os.path.splitext(os.path.basename(image_path))[0]
             recognized_name = find_closest_name(filename, student_names)
             student_found = recognized_name
