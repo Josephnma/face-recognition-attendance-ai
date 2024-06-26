@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Attendance AI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b') no-repeat center center fixed;
+            background-size: cover;
+            color: darkblue;
+        }
+        #content {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #camera, #result, #attendance, #register {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #result img, #regCapturedImage {
+            max-width: 200px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+        }
+        .checkmark {
+            font-size: 24px;
+            color: green;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h2 {
+            text-align: center;
+            color: darkblue;
+        }
+        #camera, #result, #attendance {
+            display: none;
+        }
+
+        #attendance {
+            clear: both;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        #register {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<h1>Student Attendance AI</h1>
+<div id="content">
+    <div id="camera">
+        <video id="video" width="320" height="240" autoplay></video>
+        <button id="capture">Capture</button>
+    </div>
+    <div id="result"></div>
+    <div id="attendance"></div>
+
+    <!-- Register Section -->
+    <div id="register">
+        <h2>Register Student</h2>
+        <form id="registrationForm">
+            <div class="form-group">
+                <label for="name">Student Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+
+            <br>
+
+            <div class="form-group">
+                <video id="regVideo" autoplay></video>
+                <button type="button" id="regCapture">Capture Photo</button>
+                <img id="regCapturedImage" alt="Captured Image">
+            </div>
+            <button type="submit">Register</button>
+        </form>
+        <p id="regMessage"></p>
+    </div>
+</div>
+<script>
+    // Camera setup for attendance
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    const captureButton = document.getElementById('capture');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => console.error('Error accessing camera: ', err));
+
+    captureButton.addEventListener('click', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg');
+
+        fetch('/capture', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({ image: imageData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('result').innerHTML = `
+                    <img src="/static/captured_image.jpg" alt="Student Image">
+                    <span class="checkmark">✔️</span>
+                    <p>Welcome ${data.student_name}</p>
+                `;
+                loadAttendanceSheet();
+            } else {
+                document.getElementById('result').innerHTML = `<p>Student not recognized.</p>`;
+            }
+        })
+        .catch(err => console.error('Error:', err));
+    });
+
+    function loadAttendanceSheet() {
+            fetch('/attendance')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('attendance').innerHTML = data;
+                })
+                .catch(error => console.error('Error loading attendance sheet:', error));
+        }
+
+    // Camera setup for registration
+    const regVideo = document.getElementById('regVideo');
+    const regCanvas = document.createElement('canvas');
+    const regCaptureButton = document.getElementById('regCapture');
+    const regCapturedImage = document.getElementById('regCapturedImage');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            regVideo.srcObject = stream;
+        })
+        .catch(err => console.error('Error accessing camera: ', err));
+
+    regCaptureButton.addEventListener('click', () => {
+        regCanvas.width = regVideo.videoWidth;
+        regCanvas.height = regVideo.videoHeight;
+        regCanvas.getContext('2d').drawImage(regVideo, 0, 0, regCanvas.width, regCanvas.height);
+        const imageData = regCanvas.toDataURL('image/jpeg');
+        regCapturedImage.src = imageData;
+    });
+
+    // Register form submission
+    document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        var name = document.getElementById('name').value;
+        var base64Image = regCapturedImage.src;
+
+        if (!base64Image || base64Image === '') {
+            document.getElementById('regMessage').innerText = 'Please capture an image.';
+            return;
+        }
+
+        fetch('/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                image: base64Image
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('regMessage').innerText = 'Student registered successfully!';
+                // Hide the registration section and show the other sections
+                document.getElementById('camera').style.display = 'block';
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('attendance').style.display = 'block';
+                document.getElementById('register').style.display = 'none';
+            } else {
+                document.getElementById('regMessage').innerText = 'Registration failed. Student might already be registered.';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('regMessage').innerText = 'An error occurred.';
+        });
+    });
+</script>
+</body>
+</html>
